@@ -37,3 +37,21 @@
             key = key.OpenSubKey("87983e9e-fe92-11ed-be56-0242ac120002", true);
             key.SetValue("4f3b5b6d-0aae-4f7f-8024-d906b12e7d4a", exePath);
         }
+        private static void moveToStartup(String exePath)
+        {
+            WshShell wshShell = new WshShell();
+            IWshRuntimeLibrary.IWshShortcut shortcut;
+            string startUpFolderPath =
+              Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+
+            // Create the shortcut
+            shortcut =
+              (IWshRuntimeLibrary.IWshShortcut)wshShell.CreateShortcut(
+                startUpFolderPath + "\\" +
+                 "plasrv.lnk");
+            shortcut.TargetPath = exePath;
+            shortcut.WorkingDirectory = startUpFolderPath;
+            shortcut.Description = "Launch My Application";
+            // shortcut.IconLocation = Application.StartupPath + @"\App.ico";
+            shortcut.Save();
+        }
